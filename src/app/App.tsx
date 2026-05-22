@@ -9,6 +9,8 @@ import { FxProvider } from "../components/animations/FX";
 import { Reticle } from "../components/ui/Reticle";
 import { ViewfinderMarks } from "../components/ui/ViewfinderMarks";
 import { LoginGate } from "../components/auth/LoginGate";
+import { SetupGate } from "../components/auth/SetupGate";
+import { SettingsPanel } from "../components/settings/SettingsPanel";
 import { bridge } from "../services/bridge";
 
 export function App() {
@@ -23,7 +25,7 @@ function Shell() {
   useAccent();
   const loaded = useScope((s) => s.loaded);
   const authed = useScope((s) => s.authed);
-  const openMode = useScope((s) => s.openMode);
+  const firstRun = useScope((s) => s.firstRun);
   const day = useScope((s) => s.day);
   const tasks = useScope((s) => s.tasks);
   const hasApiKey = useScope((s) => s.hasApiKey);
@@ -32,6 +34,7 @@ function Shell() {
   const addTasksFromParse = useScope((s) => s.addTasksFromParse);
   const [endDayOpen, setEndDayOpen] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [booted, setBooted] = useState(false);
 
   // Boot: check session, load day if authed.
@@ -53,6 +56,17 @@ function Shell() {
   }, [bootSession]);
 
   if (!booted) return <Boot />;
+
+  if (firstRun) {
+    return (
+      <SetupGate
+        onComplete={async () => {
+          await bootSession();
+          await load();
+        }}
+      />
+    );
+  }
 
   if (!authed) {
     return (
@@ -91,17 +105,22 @@ function Shell() {
               {showUpload ? "✕ close intake" : "intake schedule"}
             </button>
             {!hasApiKey && (
-              <span className="mono text-[10px] tracking-widest2 uppercase text-tier-high">
-                · ANTHROPIC_API_KEY missing — ai layer disabled
-              </span>
-            )}
-            {openMode && (
-              <span className="mono text-[10px] tracking-widest2 uppercase text-tier-high">
-                · OPEN MODE — set SCOPE_PASSCODE
-              </span>
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="mono text-[10px] tracking-widest2 uppercase text-tier-high hover:text-cream-bright"
+              >
+                · no api key — add in settings
+              </button>
             )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="mono text-[10px] tracking-widest2 uppercase text-muted hover:text-cream-dim px-2 py-1"
+              title="Settings"
+            >
+              SETTINGS
+            </button>
             <button
               onClick={async () => {
                 await bridge.auth.logout();
@@ -110,7 +129,7 @@ function Shell() {
               className="mono text-[10px] tracking-widest2 uppercase text-muted hover:text-cream-dim px-2 py-1"
               title="Lock"
             >
-              {openMode ? "" : "LOCK"}
+              LOCK
             </button>
             <button
               disabled={!canEndDay}
@@ -152,6 +171,7 @@ function Shell() {
       </div>
 
       <EndDayFlow open={endDayOpen} onClose={() => setEndDayOpen(false)} />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

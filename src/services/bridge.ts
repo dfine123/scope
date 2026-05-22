@@ -36,16 +36,31 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 }
 
 export interface Session {
+  firstRun: boolean;
   authed: boolean;
-  openMode: boolean;
+  openMode?: boolean;
   hasApiKey: boolean;
+}
+
+export interface AppSettings {
+  maskedApiKey: string | null;
+  hasApiKey: boolean;
+  model: string;
 }
 
 export const bridge = {
   auth: {
+    status: () => call<Session>("GET", "/status"),
     me: () => call<Session>("GET", "/me"),
+    setup: (passcode: string, apiKey: string) =>
+      call<{ ok: true }>("POST", "/setup", { passcode, apiKey }),
     login: (passcode: string) => call<{ ok: true }>("POST", "/auth/login", { passcode }),
     logout: () => call<{ ok: true }>("POST", "/auth/logout"),
+  },
+  settings: {
+    get: () => call<AppSettings>("GET", "/settings"),
+    save: (patch: { apiKey?: string; passcode?: string }) =>
+      call<AppSettings & { ok: true }>("POST", "/settings", patch),
   },
   db: {
     getCurrentDay: () => call<{ day: Day; tasks: Task[] }>("GET", "/day/current"),

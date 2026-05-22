@@ -1,19 +1,19 @@
 import { create } from "zustand";
 import type { Day, Task, Tier } from "../types";
 import { TIER_ORDER } from "../types";
-import { bridge } from "../services/bridge";
+import { bridge, type Session } from "../services/bridge";
 
 interface ScopeState {
   loaded: boolean;
   hasApiKey: boolean;
   authed: boolean;
-  openMode: boolean;
+  firstRun: boolean;
   day: Day | null;
   tasks: Task[];
   activeTaskId: string | null;
   // local epoch ms when the current active task was started or resumed
   activeStartedAt: number | null;
-  bootSession: () => Promise<{ authed: boolean; openMode: boolean; hasApiKey: boolean }>;
+  bootSession: () => Promise<Session>;
   load: () => Promise<void>;
   refresh: () => Promise<void>;
   addTask: (input: { name: string; tier?: Tier; time_block?: string | null }) => Promise<void>;
@@ -51,7 +51,7 @@ export const useScope = create<ScopeState>((set, get) => ({
   loaded: false,
   hasApiKey: false,
   authed: false,
-  openMode: false,
+  firstRun: false,
   day: null,
   tasks: [],
   activeTaskId: null,
@@ -59,7 +59,7 @@ export const useScope = create<ScopeState>((set, get) => ({
 
   async bootSession() {
     const me = await bridge.auth.me();
-    set({ authed: me.authed, openMode: me.openMode, hasApiKey: me.hasApiKey });
+    set({ authed: me.authed, firstRun: me.firstRun ?? false, hasApiKey: me.hasApiKey });
     return me;
   },
 

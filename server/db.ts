@@ -113,6 +113,12 @@ export class Database {
         created_at TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_tasks_day ON tasks(day_id);
       CREATE INDEX IF NOT EXISTS idx_tasks_name ON tasks(name);
       CREATE INDEX IF NOT EXISTS idx_reflections_day ON reflections(day_id);
@@ -473,6 +479,26 @@ export class Database {
       debriefs: this.db.prepare("SELECT * FROM debriefs").all(),
       exported_at: this.nowIso(),
     };
+  }
+
+  getSetting(key: string): string | null {
+    const row = this.db
+      .prepare("SELECT value FROM settings WHERE key = ?")
+      .get(key) as { value: string } | undefined;
+    return row?.value ?? null;
+  }
+
+  setSetting(key: string, value: string): void {
+    this.db
+      .prepare(
+        `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+      )
+      .run(key, value, new Date().toISOString());
+  }
+
+  deleteSetting(key: string): void {
+    this.db.prepare("DELETE FROM settings WHERE key = ?").run(key);
   }
 
   close() {

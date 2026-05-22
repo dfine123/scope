@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Database, Tier } from "./db";
+import type { Config } from "./config";
 
 const MODEL = process.env.SCOPE_CLAUDE_MODEL || "claude-sonnet-4-20250514";
 
@@ -11,22 +12,20 @@ interface ParsedTask {
 }
 
 export class ClaudeService {
-  private client: Anthropic | null;
-  constructor(private db: Database) {
-    const key = process.env.ANTHROPIC_API_KEY;
-    this.client = key ? new Anthropic({ apiKey: key }) : null;
-  }
+  constructor(private db: Database, private config: Config) {}
 
   hasKey() {
-    return Boolean(this.client);
+    return Boolean(this.config.getApiKey());
   }
 
   private requireClient(): Anthropic {
-    if (!this.client)
+    const key = this.config.getApiKey();
+    if (!key)
       throw new Error(
-        "Missing ANTHROPIC_API_KEY. Set it in the environment to enable AI features.",
+        "No API key configured. Add your Anthropic key in the Settings panel.",
       );
-    return this.client;
+    // Fresh client on each batch of calls so key changes take effect immediately.
+    return new Anthropic({ apiKey: key });
   }
 
   private extractJson<T>(raw: string): T {
