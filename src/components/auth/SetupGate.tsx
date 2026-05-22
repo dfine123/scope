@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Reticle } from "../ui/Reticle";
 import { ViewfinderMarks } from "../ui/ViewfinderMarks";
 import { bridge } from "../../services/bridge";
+import { applyAccent, localMottoAccent, type AccentResult } from "../../services/mottoColor";
 
-type Step = "pin" | "confirm" | "apikey";
+type Step = "pin" | "confirm" | "apikey" | "identity";
 
 interface Props {
   onComplete: () => void;
@@ -18,7 +19,29 @@ export function SetupGate({ onComplete }: Props) {
   const [mismatch, setMismatch] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Identity step
+  const [name, setName] = useState("");
+  const [motto, setMotto] = useState("");
+  const [accent, setAccent] = useState<AccentResult | null>(null);
+
   const apiRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  // Live-preview the accent the moment the user pauses typing the motto.
+  useEffect(() => {
+    if (step !== "identity") return;
+    if (!motto.trim()) {
+      setAccent(null);
+      return;
+    }
+    const id = setTimeout(() => {
+      const a = localMottoAccent(motto);
+      setAccent(a);
+      applyAccent(a.rgb);
+    }, 220);
+    return () => clearTimeout(id);
+  }, [motto, step]);
 
   const handlePinDigit = (digit: string, current: string, setter: (v: string) => void) => {
     if (current.length >= 4) return;
@@ -46,12 +69,25 @@ export function SetupGate({ onComplete }: Props) {
     if (current.length > 0) setter(current.slice(0, -1));
   };
 
-  const submit = async () => {
+  const advanceToIdentity = () => {
+    setStep("identity");
+    setTimeout(() => nameRef.current?.focus(), 100);
+  };
+
+  const finalize = async () => {
     if (busy) return;
     setBusy(true);
     setErr(null);
     try {
-      await bridge.auth.setup(pin, apiKey);
+      const accentFinal = motto.trim() ? accent ?? localMottoAccent(motto) : null;
+      await bridge.auth.setup({
+        passcode: pin,
+        apiKey: apiKey.trim() || undefined,
+        name: name.trim() || undefined,
+        motto: motto.trim() || undefined,
+        accentRgb: accentFinal?.rgb,
+        accentLabel: accentFinal?.label,
+      });
       onComplete();
     } catch (e: any) {
       setErr(e?.message || "Setup failed");
@@ -75,7 +111,6 @@ export function SetupGate({ onComplete }: Props) {
         <div className="hairline rounded-[3px] bg-ink-100/80 backdrop-blur-md p-8">
           <ViewfinderMarks inset={8} opacity={0.45} />
 
-          {/* Header */}
           <div className="flex items-center gap-3 mb-7">
             <Reticle size={22} spin={false} />
             <div>
@@ -84,6 +119,7 @@ export function SetupGate({ onComplete }: Props) {
                 {step === "pin" && "create passcode"}
                 {step === "confirm" && "confirm passcode"}
                 {step === "apikey" && "anthropic api key"}
+                {step === "identity" && "identity & first motto"}
               </div>
             </div>
           </div>
@@ -143,29 +179,87 @@ export function SetupGate({ onComplete }: Props) {
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && submit()}
+                  onKeyDown={(e) => e.key === "Enter" && advanceToIdentity()}
                   placeholder="sk-ant-api03-..."
                   className="hairline rounded-[2px] bg-ink-50/60 px-3 py-2.5 mono text-[13px] text-cream-bright"
                 />
                 <div className="flex gap-2">
                   <button
-                    onClick={submit}
+                    onClick={advanceToIdentity}
+                    className="flex-1 mono text-[11px] tracking-widest2 uppercase py-2.5 rounded-[2px] border
+                               border-[rgb(var(--accent-rgb)/0.5)] text-[rgb(var(--accent-rgb))]
+                               hover:bg-[rgb(var(--accent-rgb)/0.08)]"
+                  >
+                    continue →
+                  </button>
+                  <button
+                    onClick={advanceToIdentity}
+                    className="mono text-[10px] tracking-widest2 uppercase px-3 py-2.5 rounded-[2px] border border-white/10 text-muted hover:text-cream-dim"
+                  >
+                    skip
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {step === "identity" && (
+              <motion.div
+                key="identity"
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.22 }}
+                className="flex flex-col gap-5"
+              >
+                <div className="flex flex-col gap-2">
+                  <label className="label-eyebrow">CALL SIGN</label>
+                  <input
+                    ref={nameRef}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    maxLength={32}
+                    placeholder="e.g. dfine"
+                    className="hairline rounded-[2px] bg-ink-50/60 px-3 py-2.5 mono text-[14px] text-cream-bright"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="label-eyebrow">FIRST MOTTO</label>
+                  <textarea
+                    value={motto}
+                    onChange={(e) => setMotto(e.target.value)}
+                    rows={2}
+                    placeholder="operating directive — drives the accent"
+                    className="hairline rounded-[2px] bg-ink-50/60 px-3 py-2.5 font-display text-[15px] text-cream-bright resize-none"
+                  />
+                  {accent && motto.trim() && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <div
+                        className="w-3 h-3 rounded-[2px]"
+                        style={{
+                          background: `rgb(${accent.rgb})`,
+                          boxShadow: `0 0 12px rgb(${accent.rgb})`,
+                        }}
+                      />
+                      <span className="mono text-[10px] tracking-widest2 uppercase text-muted">
+                        accent · {accent.label}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={finalize}
                     disabled={busy}
                     className="flex-1 mono text-[11px] tracking-widest2 uppercase py-2.5 rounded-[2px] border
                                border-[rgb(var(--accent-rgb)/0.5)] text-[rgb(var(--accent-rgb))]
                                hover:bg-[rgb(var(--accent-rgb)/0.08)] disabled:opacity-40"
                   >
-                    {busy ? "setting up…" : "launch scope"}
+                    {busy ? "engaging…" : "launch scope"}
                   </button>
-                  {!busy && (
-                    <button
-                      onClick={submit}
-                      className="mono text-[10px] tracking-widest2 uppercase px-3 py-2.5 rounded-[2px] border border-white/10 text-muted hover:text-cream-dim"
-                    >
-                      skip
-                    </button>
-                  )}
                 </div>
+
                 {err && (
                   <p className="mono text-[10px] tracking-widest2 uppercase text-tier-critical">
                     · {err}
@@ -177,7 +271,7 @@ export function SetupGate({ onComplete }: Props) {
         </div>
 
         <div className="mt-4 mono text-[10px] tracking-widest2 uppercase text-muted text-center">
-          passcode stored encrypted · api key stored locally · single-operator
+          passcode encrypted · api key local · single-operator
         </div>
       </motion.div>
     </div>

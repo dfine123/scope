@@ -58,6 +58,14 @@ export class Config {
     this.db.setSetting("api_key", key);
   }
 
+  getOperatorName(): string | null {
+    return this.db.getSetting("operator_name");
+  }
+
+  setOperatorName(name: string): void {
+    this.db.setSetting("operator_name", name);
+  }
+
   // Masked version safe to send to the browser (last 4 chars visible).
   maskedApiKey(): string | null {
     const key = this.getApiKey();

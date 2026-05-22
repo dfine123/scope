@@ -18,6 +18,7 @@ export function buildRouter(db: Database, claude: ClaudeService, config: Config)
       firstRun: config.isFirstRun(),
       authed: isAuthed(req),
       hasApiKey: claude.hasKey(),
+      operatorName: config.getOperatorName(),
     });
   });
 
@@ -28,11 +29,12 @@ export function buildRouter(db: Database, claude: ClaudeService, config: Config)
       authed: isAuthed(req),
       openMode: false,
       hasApiKey: claude.hasKey(),
+      operatorName: config.getOperatorName(),
     });
   });
 
   // ---------- First-run setup (public, but only works once) ----------
-  r.post("/setup", (req, res) => {
+  r.post("/setup", async (req, res) => {
     if (!config.isFirstRun()) {
       return res.status(409).json({ error: "already configured" });
     }
@@ -44,6 +46,23 @@ export function buildRouter(db: Database, claude: ClaudeService, config: Config)
 
     const apiKey = String(req.body?.apiKey ?? "").trim();
     if (apiKey) config.setApiKey(apiKey);
+
+    const name = String(req.body?.name ?? "").trim();
+    if (name) config.setOperatorName(name);
+
+    const motto = String(req.body?.motto ?? "").trim();
+    const accentRgb = String(req.body?.accentRgb ?? "").trim();
+    const accentLabel = String(req.body?.accentLabel ?? "").trim();
+    if (motto) {
+      // Apply to the current day so the operator's first motto is live
+      // immediately. We seed the day record (getCurrentDay auto-creates).
+      const { day } = db.getCurrentDay();
+      db.updateDay(day.id, {
+        motto,
+        accent_rgb: accentRgb || null,
+        accent_label: accentLabel || null,
+      });
+    }
 
     attachSessionCookie(res);
     res.json({ ok: true });
@@ -77,21 +96,26 @@ export function buildRouter(db: Database, claude: ClaudeService, config: Config)
       maskedApiKey: config.maskedApiKey(),
       hasApiKey: claude.hasKey(),
       model: process.env.SCOPE_CLAUDE_MODEL || "claude-sonnet-4-20250514",
+      operatorName: config.getOperatorName(),
     });
   });
 
   gated.post("/settings", (req, res) => {
-    const { apiKey, passcode } = req.body ?? {};
+    const { apiKey, passcode, operatorName } = req.body ?? {};
     if (typeof apiKey === "string" && apiKey.trim()) {
       config.setApiKey(apiKey.trim());
     }
     if (typeof passcode === "string" && /^\d{4}$/.test(passcode.trim())) {
       config.setPasscode(passcode.trim());
     }
+    if (typeof operatorName === "string") {
+      config.setOperatorName(operatorName.trim());
+    }
     res.json({
       ok: true,
       maskedApiKey: config.maskedApiKey(),
       hasApiKey: claude.hasKey(),
+      operatorName: config.getOperatorName(),
     });
   });
 

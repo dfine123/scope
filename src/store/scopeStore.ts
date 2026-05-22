@@ -8,6 +8,7 @@ interface ScopeState {
   hasApiKey: boolean;
   authed: boolean;
   firstRun: boolean;
+  operatorName: string | null;
   day: Day | null;
   tasks: Task[];
   activeTaskId: string | null;
@@ -52,6 +53,7 @@ export const useScope = create<ScopeState>((set, get) => ({
   hasApiKey: false,
   authed: false,
   firstRun: false,
+  operatorName: null,
   day: null,
   tasks: [],
   activeTaskId: null,
@@ -59,7 +61,12 @@ export const useScope = create<ScopeState>((set, get) => ({
 
   async bootSession() {
     const me = await bridge.auth.me();
-    set({ authed: me.authed, firstRun: me.firstRun ?? false, hasApiKey: me.hasApiKey });
+    set({
+      authed: me.authed,
+      firstRun: me.firstRun ?? false,
+      hasApiKey: me.hasApiKey,
+      operatorName: me.operatorName ?? null,
+    });
     return me;
   },
 

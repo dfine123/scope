@@ -17,7 +17,37 @@ const TIER_LABEL: Record<Tier, string> = {
 
 const TIER_OPTIONS: Tier[] = ["CRITICAL", "HIGH", "STANDARD", "LOW"];
 
-export function TaskRow({ task, index }: { task: Task; index: number }) {
+const TIER_BORDER: Record<Tier, string> = {
+  CRITICAL:
+    "before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-[rgb(var(--accent-rgb))]",
+  HIGH:
+    "before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-[rgb(var(--accent-rgb)/0.7)]",
+  STANDARD:
+    "before:absolute before:left-0 before:top-0 before:bottom-0 before:w-px before:bg-[rgb(var(--accent-rgb)/0.4)]",
+  LOW: "",
+};
+
+const TIER_PAD: Record<Tier, string> = {
+  CRITICAL: "py-4",
+  HIGH: "py-3.5",
+  STANDARD: "py-3",
+  LOW: "py-2.5",
+};
+
+const TIER_TITLE: Record<Tier, string> = {
+  CRITICAL: "font-semibold text-[15.5px]",
+  HIGH: "font-medium text-[15px]",
+  STANDARD: "font-medium text-[14.5px]",
+  LOW: "font-normal text-[14px] text-cream-dim",
+};
+
+interface Props {
+  task: Task;
+  index: number;
+  anyActive: boolean;
+}
+
+export function TaskRow({ task, index, anyActive }: Props) {
   const active = task.status === "ACTIVE";
   const done = task.status === "DONE";
   const skipped = task.status === "SKIPPED";
@@ -57,6 +87,9 @@ export function TaskRow({ task, index }: { task: Task; index: number }) {
     ? task.awarded_points
     : Math.round(task.base_points * task.streak_multiplier);
 
+  const dim = anyActive && !active && !done && !skipped;
+  const completedDim = done || skipped;
+
   return (
     <motion.div
       ref={rowRef}
@@ -64,15 +97,18 @@ export function TaskRow({ task, index }: { task: Task; index: number }) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
-      transition={{ delay: index * 0.035, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className={`group relative grid grid-cols-[24px_minmax(0,1fr)_auto_auto_auto] items-center gap-4
-                  px-5 py-3.5 rounded-[3px] border bg-ink-100/60
-                  ${active ? "row-active" : "border-white/[0.06] hover:border-white/[0.14]"}
-                  ${done ? "opacity-50" : ""} ${skipped ? "opacity-30" : ""}
-                  transition-colors`}
+      transition={{ delay: index * 0.025, duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+      className={`group relative grid grid-cols-[22px_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-4
+                  pl-5 pr-4 ${TIER_PAD[task.tier]} rounded-[3px] border
+                  ${active
+                    ? "bg-[rgb(var(--accent-rgb)/0.05)] row-active border-[rgb(var(--accent-rgb)/0.5)]"
+                    : "bg-ink-100/55 border-white/[0.06] hover:border-white/[0.14]"}
+                  ${completedDim ? "opacity-50" : dim ? "opacity-60" : "opacity-100"}
+                  ${TIER_BORDER[task.tier]}
+                  transition-[opacity,border-color] duration-200`}
     >
-      {/* Lock-on indicator */}
-      <div className="flex items-center justify-center w-6 h-6">
+      {/* Lock-on indicator or tier dot */}
+      <div className="flex items-center justify-center w-5 h-5">
         {active ? (
           <LockOnReticle size={16} />
         ) : (
@@ -103,12 +139,12 @@ export function TaskRow({ task, index }: { task: Task; index: number }) {
                   setEditing(false);
                 }
               }}
-              className="font-display text-[15px] font-medium text-cream-bright bg-transparent border-b border-[rgb(var(--accent-rgb)/0.4)] outline-none w-full pb-px"
+              className="font-display font-medium text-cream-bright bg-transparent border-b border-[rgb(var(--accent-rgb)/0.4)] outline-none w-full pb-px text-[15px]"
             />
           ) : (
             <span
               onDoubleClick={() => !done && setEditing(true)}
-              className={`font-display text-[15px] font-medium text-cream-bright truncate
+              className={`font-display ${TIER_TITLE[task.tier]} text-cream-bright truncate
                           ${done ? "strike-sweep" : ""}`}
               title="Double-click to rename"
             >
@@ -156,23 +192,9 @@ export function TaskRow({ task, index }: { task: Task; index: number }) {
               )}
             </AnimatePresence>
           </span>
-          {task.time_block && <span>· {task.time_block}</span>}
+          {task.time_block && <span className="text-cream-dim">· {task.time_block}</span>}
           <span>· {task.base_points}pt base</span>
           {task.elapsed_ms > 0 && <span>· {formatMinutes(task.elapsed_ms)} logged</span>}
-        </div>
-      </div>
-
-      {/* Awarded points */}
-      <div className="mono text-right">
-        <div className={`text-[10px] label-eyebrow ${done ? "text-[rgb(var(--accent-rgb))]" : ""}`}>
-          {done ? "BANKED" : "AWAITING"}
-        </div>
-        <div
-          className={`mono text-[15px] ${
-            done ? "text-[rgb(var(--accent-rgb))] accent-text-glow" : "text-cream-dim"
-          }`}
-        >
-          {done ? "+" : ""}{awarded}
         </div>
       </div>
 
@@ -183,12 +205,26 @@ export function TaskRow({ task, index }: { task: Task; index: number }) {
           taskId={task.id}
           baseElapsedMs={task.elapsed_ms}
           active={active}
-          className="text-[15px]"
+          className="text-[14px]"
         />
       </div>
 
+      {/* Points */}
+      <div className="mono text-right">
+        <div className={`text-[10px] label-eyebrow ${done ? "text-[rgb(var(--accent-rgb))]" : ""}`}>
+          {done ? "BANKED" : "PTS"}
+        </div>
+        <div
+          className={`mono text-[14px] ${
+            done ? "text-[rgb(var(--accent-rgb))] accent-text-glow" : "text-cream-dim"
+          }`}
+        >
+          {done ? "+" : ""}{awarded}
+        </div>
+      </div>
+
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {!done && !skipped && (
           <button
             onClick={onToggleRun}
@@ -196,6 +232,7 @@ export function TaskRow({ task, index }: { task: Task; index: number }) {
                         ${active
                           ? "border-[rgb(var(--accent-rgb)/0.6)] text-[rgb(var(--accent-rgb))] flare"
                           : "border-white/10 text-cream-dim hover:text-cream-bright hover:border-white/30 hover:flare"}`}
+            title="Start / stop"
           >
             {active ? "STOP" : "START"}
           </button>
@@ -214,23 +251,34 @@ export function TaskRow({ task, index }: { task: Task; index: number }) {
           <button
             onClick={() => skipTask(task.id)}
             className="mono text-[10px] tracking-widest2 uppercase text-muted hover:text-cream-dim px-1"
-            title="Mark skipped"
+            title="Skip"
           >
             SKIP
           </button>
         )}
-        {(done || skipped) && (
-          <span className="mono text-[10px] tracking-widest2 uppercase text-muted">
-            {done ? "CLEARED" : "PASSED"}
-          </span>
-        )}
         <button
           onClick={() => deleteTask(task.id)}
-          className="mono text-[10px] text-muted-deep hover:text-tier-critical opacity-0 group-hover:opacity-100 transition-opacity"
+          className="mono text-[10px] text-muted-deep hover:text-tier-critical opacity-0 group-hover:opacity-100 transition-opacity px-1"
           title="Delete"
         >
           ✕
         </button>
+      </div>
+
+      {/* Status pill */}
+      <div className="flex items-center justify-end min-w-[68px]">
+        <span
+          className={`mono text-[9px] tracking-widest2 uppercase px-1.5 py-0.5 rounded-[2px] border
+                      ${active
+                        ? "border-[rgb(var(--accent-rgb)/0.6)] text-[rgb(var(--accent-rgb))] bg-[rgb(var(--accent-rgb)/0.08)]"
+                        : done
+                          ? "border-[rgb(var(--accent-rgb)/0.3)] text-[rgb(var(--accent-rgb)/0.85)]"
+                          : skipped
+                            ? "border-muted-deep text-muted"
+                            : "border-white/[0.08] text-muted"}`}
+        >
+          {task.status}
+        </span>
       </div>
     </motion.div>
   );

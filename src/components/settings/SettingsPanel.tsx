@@ -16,6 +16,7 @@ export function SettingsPanel({ open, onClose }: Props) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [apiKeyDirty, setApiKeyDirty] = useState(false);
+  const [opName, setOpName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -35,7 +36,13 @@ export function SettingsPanel({ open, onClose }: Props) {
     setApiKeyDirty(false);
     setSaved(false);
     setErr(null);
-    bridge.settings.get().then(setSettings).catch(() => null);
+    bridge.settings
+      .get()
+      .then((s) => {
+        setSettings(s);
+        setOpName(s.operatorName ?? "");
+      })
+      .catch(() => null);
   }, [open]);
 
   const saveApiKey = async () => {
@@ -135,6 +142,40 @@ export function SettingsPanel({ open, onClose }: Props) {
             </div>
 
             <div className="px-7 py-6 flex flex-col gap-6">
+              {/* Operator name */}
+              <section>
+                <div className="label-eyebrow mb-2">CALL SIGN</div>
+                <div className="flex gap-2">
+                  <input
+                    value={opName}
+                    onChange={(e) => setOpName(e.target.value)}
+                    maxLength={32}
+                    placeholder="operator name"
+                    className="flex-1 hairline rounded-[2px] bg-ink-50/60 px-3 py-2 mono text-[13px] text-cream-bright"
+                  />
+                  <button
+                    onClick={async () => {
+                      setSaving(true);
+                      try {
+                        const updated = await bridge.settings.save({ operatorName: opName });
+                        setSettings(updated);
+                        setSaved(true);
+                        await bootSession();
+                        setTimeout(() => setSaved(false), 2000);
+                      } catch (e: any) {
+                        setErr(e?.message || "Save failed");
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    disabled={opName === (settings?.operatorName ?? "") || saving}
+                    className="mono text-[10px] tracking-widest2 uppercase px-3 py-2 border border-white/15 rounded-[2px] text-cream-dim hover:text-cream-bright hover:border-white/30 disabled:opacity-30"
+                  >
+                    save
+                  </button>
+                </div>
+              </section>
+
               {/* API Key */}
               <section>
                 <div className="label-eyebrow mb-2">ANTHROPIC API KEY</div>

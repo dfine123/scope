@@ -40,26 +40,37 @@ export interface Session {
   authed: boolean;
   openMode?: boolean;
   hasApiKey: boolean;
+  operatorName?: string | null;
 }
 
 export interface AppSettings {
   maskedApiKey: string | null;
   hasApiKey: boolean;
   model: string;
+  operatorName: string | null;
+}
+
+export interface SetupPayload {
+  passcode: string;
+  apiKey?: string;
+  name?: string;
+  motto?: string;
+  accentRgb?: string;
+  accentLabel?: string;
 }
 
 export const bridge = {
   auth: {
     status: () => call<Session>("GET", "/status"),
     me: () => call<Session>("GET", "/me"),
-    setup: (passcode: string, apiKey: string) =>
-      call<{ ok: true }>("POST", "/setup", { passcode, apiKey }),
+    setup: (payload: SetupPayload) =>
+      call<{ ok: true }>("POST", "/setup", payload),
     login: (passcode: string) => call<{ ok: true }>("POST", "/auth/login", { passcode }),
     logout: () => call<{ ok: true }>("POST", "/auth/logout"),
   },
   settings: {
     get: () => call<AppSettings>("GET", "/settings"),
-    save: (patch: { apiKey?: string; passcode?: string }) =>
+    save: (patch: { apiKey?: string; passcode?: string; operatorName?: string }) =>
       call<AppSettings & { ok: true }>("POST", "/settings", patch),
   },
   db: {
