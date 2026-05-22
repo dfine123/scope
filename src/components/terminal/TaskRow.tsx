@@ -111,12 +111,28 @@ export function TaskRow({ task, index, anyActive }: Props) {
     >
       {/* Main row */}
       <div className={`grid grid-cols-[22px_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-4 ${TIER_PAD[task.tier]}`}>
-        {/* Lock-on indicator or tier dot */}
+        {/* Checkbox / lock-on indicator */}
         <div className="flex items-center justify-center w-5 h-5">
           {active ? (
             <LockOnReticle size={16} />
           ) : (
-            <span className={`tier-dot tier-${task.tier}`} />
+            <button
+              onClick={(e) => !done && !skipped && onComplete(e)}
+              disabled={done || skipped}
+              title={done ? "Completed" : skipped ? "Skipped" : "Mark complete"}
+              className={`w-[18px] h-[18px] rounded-[3px] border-2 flex items-center justify-center transition-all
+                          ${done
+                            ? "border-[rgb(var(--accent-rgb)/0.7)] bg-[rgb(var(--accent-rgb)/0.18)]"
+                            : skipped
+                              ? "border-white/15 bg-transparent"
+                              : `border-[rgb(var(--accent-rgb)/0.4)] hover:border-[rgb(var(--accent-rgb)/0.9)]
+                                 hover:bg-[rgb(var(--accent-rgb)/0.08)] hover:scale-105 cursor-pointer`}`}
+            >
+              {done && (
+                <span className="text-[rgb(var(--accent-rgb))] text-[11px] leading-none accent-text-glow">✓</span>
+              )}
+              {skipped && <span className="text-muted text-[10px] leading-none">−</span>}
+            </button>
           )}
         </div>
 
@@ -251,10 +267,15 @@ export function TaskRow({ task, index, anyActive }: Props) {
           {!done && !skipped && (
             <button
               onClick={onComplete}
-              className="mono text-[10px] tracking-widest2 uppercase px-2.5 py-1 border border-[rgb(var(--accent-rgb)/0.35)]
-                         text-[rgb(var(--accent-rgb))] rounded-[2px]
-                         hover:bg-[rgb(var(--accent-rgb)/0.08)] hover:border-[rgb(var(--accent-rgb)/0.7)]"
+              className="mono text-[10px] tracking-widest2 uppercase px-3 py-1.5 border-2 border-[rgb(var(--accent-rgb)/0.55)]
+                         text-[rgb(var(--accent-rgb))] bg-[rgb(var(--accent-rgb)/0.06)] rounded-[3px]
+                         hover:bg-[rgb(var(--accent-rgb)/0.14)] hover:border-[rgb(var(--accent-rgb)/0.9)]
+                         hover:shadow-[0_0_18px_-4px_rgb(var(--accent-rgb)/0.6)]
+                         flex items-center gap-1.5 transition-all"
             >
+              <span className="inline-flex items-center justify-center w-3 h-3 border border-[rgb(var(--accent-rgb)/0.6)] rounded-[2px] text-[8px] leading-none">
+                ✓
+              </span>
               DONE
             </button>
           )}
@@ -346,14 +367,14 @@ function SubtaskPanel({ taskId }: { taskId: string }) {
         <div key={sub.id} className="group/sub flex items-center gap-2 py-0.5">
           <button
             onClick={() => toggle(sub)}
-            className={`flex-shrink-0 w-3.5 h-3.5 rounded-[2px] border flex items-center justify-center transition-colors
+            className={`flex-shrink-0 w-4 h-4 rounded-[3px] border-2 flex items-center justify-center transition-all
                         ${sub.status === "DONE"
-                          ? "border-[rgb(var(--accent-rgb)/0.6)] bg-[rgb(var(--accent-rgb)/0.15)]"
-                          : "border-white/20 hover:border-white/40"}`}
+                          ? "border-[rgb(var(--accent-rgb)/0.7)] bg-[rgb(var(--accent-rgb)/0.18)]"
+                          : "border-white/25 hover:border-[rgb(var(--accent-rgb)/0.6)] hover:bg-[rgb(var(--accent-rgb)/0.06)]"}`}
             title="Toggle complete"
           >
             {sub.status === "DONE" && (
-              <span className="text-[rgb(var(--accent-rgb))] text-[8px] leading-none">✓</span>
+              <span className="text-[rgb(var(--accent-rgb))] text-[10px] leading-none accent-text-glow">✓</span>
             )}
           </button>
           <span
