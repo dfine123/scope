@@ -2,43 +2,68 @@
 
 A daily operating system disguised as a terminal. Not a todo app. Not a habit tracker. A command interface for running your life with precision.
 
-## Run
+Web-based. Single operator. Cloud-deployable on Railway.
+
+## Run locally (Windows / macOS / Linux)
 
 ```bash
 npm install
-export ANTHROPIC_API_KEY=sk-ant-...
-npm run dev:electron        # build renderer + launch desktop app
+
+# .env
+ANTHROPIC_API_KEY=sk-ant-...
+SCOPE_PASSCODE=pickAnything
+SCOPE_DB_PATH=./data/scope.db
+
+npm run build           # type-check + vite build + tsc server
+npm start               # http://localhost:3000
 ```
 
-For UI iteration only (no AI parsing / insights):
+Iteration mode (Vite HMR + tsx-watch server, parallel):
 
 ```bash
-npm run dev                 # vite dev server in a browser
+# terminal A — renderer
+npm run dev             # http://localhost:5173 (proxies /api to the server)
+
+# terminal B — server
+ANTHROPIC_API_KEY=... SCOPE_PASSCODE=... npm run dev:server
 ```
 
-The browser preview persists to `localStorage` and uses local heuristics for motto→accent and debriefs so the flow stays usable.
+## Deploy to Railway
+
+1. Push this repo to GitHub.
+2. New Railway project → **Deploy from GitHub repo** → pick this repo. Railway picks up `Dockerfile` + `railway.json`.
+3. Add a **Persistent Volume**, mount it at `/data`. (Settings → Volumes → New Volume → Mount path `/data`.)
+4. Set env vars (Settings → Variables):
+   - `ANTHROPIC_API_KEY` — your Claude key
+   - `SCOPE_PASSCODE` — anything; the passcode you'll type to unlock
+   - `SCOPE_AUTH_SECRET` — 32+ random chars (e.g. `openssl rand -hex 32`)
+   - `SCOPE_DB_PATH` — `/data/scope.db`
+   - `SCOPE_CLAUDE_MODEL` — optional override
+5. Railway auto-deploys. The first deploy will take ~3 minutes (compiling `better-sqlite3`).
+
+All data lives in `/data/scope.db` on the volume — survives restarts and redeploys.
+
+## Mobile
+
+Open the Railway URL on your phone, log in with the passcode, schedule-upload's file picker triggers the native camera on iOS/Android.
 
 ## Stack
 
-- **Electron** shell · **Vite** + **React** + **TypeScript** renderer
+- **Express** server · **Vite** + **React** + **TypeScript** renderer
 - **Tailwind CSS** + custom CSS animations
 - **Framer Motion** for layout / transition choreography
-- **Zustand** for app state
-- **better-sqlite3** for local persistence (lives in your OS user-data dir as `scope.db`)
-- **Claude Sonnet 4** for schedule vision parsing, debrief generation, "Have You Thought About" prompts, reflective questions, and motto→accent color mapping
+- **Zustand** for state
+- **better-sqlite3** for storage (single file, WAL mode, on a persistent volume in prod)
+- **Claude Sonnet 4** for schedule vision parsing, debrief, "have you thought about" prompts, reflective questions, motto→accent color
 
-## Build
+## Endpoints
+
+`/api/me`, `/api/auth/{login,logout}`, `/api/day/{current,:id}`, `/api/day`, `/api/task`, `/api/ai/{schedule,debrief,think,reflect,motto}`, `/api/streaks`, `/api/export`. All gated behind the passcode session cookie.
+
+## Data export
 
 ```bash
-npm run build               # type-check + vite build + electron tsc
-npm run build:electron      # packaged installer via electron-builder
+curl -b "scope_session=..." https://<your-railway>.up.railway.app/api/export > scope-backup.json
 ```
 
-## Data
-
-- `scope.db` (SQLite WAL) in Electron's userData directory
-- Export everything: `window.scope.db.exportAll()` returns a single JSON blob
-
-## File layout
-
-See the directory tree — the structure follows the spec.
+Or hit `GET /api/export` from a logged-in browser tab.

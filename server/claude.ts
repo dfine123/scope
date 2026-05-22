@@ -1,11 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Database, Tier } from "./database";
+import type { Database, Tier } from "./db";
 
 const MODEL = process.env.SCOPE_CLAUDE_MODEL || "claude-sonnet-4-20250514";
-
-function tieredPoints(tier: Tier): number {
-  return { CRITICAL: 200, HIGH: 120, STANDARD: 60, LOW: 30 }[tier];
-}
 
 interface ParsedTask {
   name: string;
@@ -19,6 +15,10 @@ export class ClaudeService {
   constructor(private db: Database) {
     const key = process.env.ANTHROPIC_API_KEY;
     this.client = key ? new Anthropic({ apiKey: key }) : null;
+  }
+
+  hasKey() {
+    return Boolean(this.client);
   }
 
   private requireClient(): Anthropic {

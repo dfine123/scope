@@ -1,5 +1,7 @@
 import BetterSqlite3 from "better-sqlite3";
 import { randomUUID } from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 export type Tier = "CRITICAL" | "HIGH" | "STANDARD" | "LOW";
 export type TaskStatus = "QUEUED" | "ACTIVE" | "DONE" | "SKIPPED";
@@ -36,11 +38,6 @@ export interface DayRecord {
   closed_at: string | null;
 }
 
-export interface ReflectionEntry {
-  question: string;
-  answer: string;
-}
-
 export interface DebriefRecord {
   signal: string;
   blind_spots: string;
@@ -57,8 +54,10 @@ const TIER_POINTS: Record<Tier, number> = {
 export class Database {
   private db: BetterSqlite3.Database;
 
-  constructor(path: string) {
-    this.db = new BetterSqlite3(path);
+  constructor(filePath: string) {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    this.db = new BetterSqlite3(filePath);
     this.db.pragma("journal_mode = WAL");
     this.migrate();
   }
@@ -251,7 +250,6 @@ export class Database {
   }
 
   private computeStreak(name: string, excludeDayId: string): number {
-    // Walk back day-by-day to find consecutive completion streak ending at the most recent closed day.
     const normalized = name.trim().toLowerCase();
     if (!normalized) return 1;
     const rows = this.db
@@ -343,13 +341,11 @@ export class Database {
       .get(id) as TaskRecord;
     if (!existing) throw new Error("Task not found");
 
-    // If renaming, recompute streak/multiplier.
     if (patch.name && patch.name !== existing.name) {
       const streak = this.computeStreak(patch.name, existing.day_id);
       patch.streak_count = streak;
       patch.streak_multiplier = this.multiplierFor(streak);
     }
-    // If tier changing, recompute base points.
     if (patch.tier && patch.tier !== existing.tier) {
       patch.base_points = TIER_POINTS[patch.tier];
     }
@@ -367,7 +363,6 @@ export class Database {
       this.db.prepare(`UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`).run(...values);
     }
 
-    // Recompute day total.
     const dayId = existing.day_id;
     const total = this.db
       .prepare(
@@ -484,10 +479,7 @@ export class Database {
     this.db.close();
   }
 
-  // Public access for service modules
   raw() {
     return this.db;
   }
 }
-
-export const TIER_POINTS_EXPORT = TIER_POINTS;

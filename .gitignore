@@ -1,7 +1,9 @@
 node_modules/
 dist/
 dist-electron/
+dist-server/
 release/
+data/
 .env
 .env.local
 *.log

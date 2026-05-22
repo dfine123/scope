@@ -6,11 +6,14 @@ import { bridge } from "../services/bridge";
 interface ScopeState {
   loaded: boolean;
   hasApiKey: boolean;
+  authed: boolean;
+  openMode: boolean;
   day: Day | null;
   tasks: Task[];
   activeTaskId: string | null;
   // local epoch ms when the current active task was started or resumed
   activeStartedAt: number | null;
+  bootSession: () => Promise<{ authed: boolean; openMode: boolean; hasApiKey: boolean }>;
   load: () => Promise<void>;
   refresh: () => Promise<void>;
   addTask: (input: { name: string; tier?: Tier; time_block?: string | null }) => Promise<void>;
@@ -47,18 +50,24 @@ function sortTasks(tasks: Task[]): Task[] {
 export const useScope = create<ScopeState>((set, get) => ({
   loaded: false,
   hasApiKey: false,
+  authed: false,
+  openMode: false,
   day: null,
   tasks: [],
   activeTaskId: null,
   activeStartedAt: null,
 
+  async bootSession() {
+    const me = await bridge.auth.me();
+    set({ authed: me.authed, openMode: me.openMode, hasApiKey: me.hasApiKey });
+    return me;
+  },
+
   async load() {
-    const hasApiKey = await bridge.app.hasApiKey().catch(() => false);
     const { day, tasks } = await bridge.db.getCurrentDay();
     const active = tasks.find((t) => t.status === "ACTIVE");
     set({
       loaded: true,
-      hasApiKey,
       day,
       tasks: sortTasks(tasks),
       activeTaskId: active?.id ?? null,

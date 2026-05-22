@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useScope } from "../../store/scopeStore";
-import { bridge, isElectron } from "../../services/bridge";
+import { bridge } from "../../services/bridge";
 import { Reticle } from "../ui/Reticle";
 import { ViewfinderMarks } from "../ui/ViewfinderMarks";
 import { ScheduleUpload } from "./ScheduleUpload";
@@ -89,7 +89,7 @@ export function EndDayFlow({ open, onClose }: Props) {
   useEffect(() => {
     if (!open || !day) return;
     if (stage === "debrief" && !debrief && !debriefLoading) {
-      if (isElectron && hasApiKey) {
+      if (hasApiKey) {
         setDebriefLoading(true);
         bridge.ai
           .generateDebrief(day.id)
@@ -106,7 +106,7 @@ export function EndDayFlow({ open, onClose }: Props) {
       }
     }
     if (stage === "think" && prompts.length === 0 && !thinkLoading) {
-      if (isElectron && hasApiKey) {
+      if (hasApiKey) {
         setThinkLoading(true);
         bridge.ai
           .generateThinkAbout(day.id)
@@ -118,7 +118,7 @@ export function EndDayFlow({ open, onClose }: Props) {
       }
     }
     if (stage === "reflect" && reflectQs.length === 0 && !reflectLoading) {
-      if (isElectron && hasApiKey) {
+      if (hasApiKey) {
         setReflectLoading(true);
         bridge.ai
           .generateReflectionQuestions(day.id)
@@ -179,7 +179,7 @@ export function EndDayFlow({ open, onClose }: Props) {
     if (!trimmed) return;
     setMottoLoading(true);
     try {
-      if (isElectron && hasApiKey) {
+      if (hasApiKey) {
         const a = await bridge.ai.mottoAccent(trimmed);
         setAccent({ rgb: a.rgb, hex: a.hex, label: a.label });
       } else {
@@ -534,9 +534,10 @@ function ScheduleView({
         </div>
       </div>
       <ScheduleUpload onParsed={setTasks} />
-      {!hasApiKey && !isElectron && (
+      {!hasApiKey && (
         <div className="mono text-[11px] text-muted">
-          Note: vision parsing only runs in the desktop app with `ANTHROPIC_API_KEY` set.
+          Vision parsing requires <span className="text-cream-dim">ANTHROPIC_API_KEY</span> on the server.
+          Skip and load tomorrow manually.
         </div>
       )}
       {tasks.length > 0 && (

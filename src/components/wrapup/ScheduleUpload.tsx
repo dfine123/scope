@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Reticle } from "../ui/Reticle";
 import { ViewfinderMarks } from "../ui/ViewfinderMarks";
 import type { ParsedTask } from "../../types";
-import { bridge, isElectron } from "../../services/bridge";
+import { bridge } from "../../services/bridge";
 
 interface Props {
   onParsed: (tasks: ParsedTask[]) => void;
@@ -28,9 +28,6 @@ export function ScheduleUpload({ onParsed, compact = false, label }: Props) {
         r.readAsDataURL(file);
       });
       setPreview(dataUrl);
-      if (!isElectron) {
-        throw new Error("Vision parsing runs in the desktop app. Try running `npm run dev:electron`.");
-      }
       const parsed = await bridge.ai.parseSchedule(dataUrl);
       onParsed(parsed);
     } catch (e: any) {
