@@ -39,6 +39,15 @@ export interface Debrief {
   connections: string;
 }
 
+export interface Subtask {
+  id: string;
+  task_id: string;
+  name: string;
+  status: "QUEUED" | "DONE";
+  position: number;
+  created_at: string;
+}
+
 export interface ParsedTask {
   name: string;
   tier: Tier;

@@ -5,6 +5,16 @@ import * as path from "node:path";
 
 export type Tier = "CRITICAL" | "HIGH" | "STANDARD" | "LOW";
 export type TaskStatus = "QUEUED" | "ACTIVE" | "DONE" | "SKIPPED";
+export type SubtaskStatus = "QUEUED" | "DONE";
+
+export interface SubtaskRecord {
+  id: string;
+  task_id: string;
+  name: string;
+  status: SubtaskStatus;
+  position: number;
+  created_at: string;
+}
 
 export interface TaskRecord {
   id: string;
@@ -119,9 +129,19 @@ export class Database {
         updated_at TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS subtasks (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'QUEUED',
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_tasks_day ON tasks(day_id);
       CREATE INDEX IF NOT EXISTS idx_tasks_name ON tasks(name);
       CREATE INDEX IF NOT EXISTS idx_reflections_day ON reflections(day_id);
+      CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(task_id);
     `);
   }
 
@@ -499,6 +519,43 @@ export class Database {
 
   deleteSetting(key: string): void {
     this.db.prepare("DELETE FROM settings WHERE key = ?").run(key);
+  }
+
+  getSubtasks(taskId: string): SubtaskRecord[] {
+    return this.db
+      .prepare("SELECT * FROM subtasks WHERE task_id = ? ORDER BY position ASC, created_at ASC")
+      .all(taskId) as SubtaskRecord[];
+  }
+
+  addSubtask(taskId: string, name: string): SubtaskRecord {
+    const id = randomUUID();
+    const maxPos = this.db
+      .prepare("SELECT COALESCE(MAX(position), -1) as m FROM subtasks WHERE task_id = ?")
+      .get(taskId) as { m: number };
+    this.db
+      .prepare(
+        `INSERT INTO subtasks (id, task_id, name, status, position, created_at)
+         VALUES (?, ?, ?, 'QUEUED', ?, ?)`,
+      )
+      .run(id, taskId, name.trim(), maxPos.m + 1, this.nowIso());
+    return this.db.prepare("SELECT * FROM subtasks WHERE id = ?").get(id) as SubtaskRecord;
+  }
+
+  updateSubtask(id: string, patch: { name?: string; status?: SubtaskStatus }): SubtaskRecord {
+    const sets: string[] = [];
+    const values: any[] = [];
+    if (patch.name !== undefined) { sets.push("name = ?"); values.push(patch.name.trim()); }
+    if (patch.status !== undefined) { sets.push("status = ?"); values.push(patch.status); }
+    if (sets.length) {
+      values.push(id);
+      this.db.prepare(`UPDATE subtasks SET ${sets.join(", ")} WHERE id = ?`).run(...values);
+    }
+    return this.db.prepare("SELECT * FROM subtasks WHERE id = ?").get(id) as SubtaskRecord;
+  }
+
+  deleteSubtask(id: string): { ok: true } {
+    this.db.prepare("DELETE FROM subtasks WHERE id = ?").run(id);
+    return { ok: true };
   }
 
   close() {

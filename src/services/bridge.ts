@@ -4,7 +4,7 @@
 // the only auth-related thing the client tracks is the `authed` flag we
 // fetch from /api/me on boot (and after login).
 
-import type { Day, Debrief, ParsedTask, Task, Tier } from "../types";
+import type { Day, Debrief, ParsedTask, Subtask, Task, Tier } from "../types";
 
 const API = "/api";
 
@@ -98,6 +98,14 @@ export const bridge = {
     getStreaks: () =>
       call<Array<{ name: string; streak: number; last_date: string }>>("GET", "/streaks"),
     exportAll: () => call<any>("GET", "/export"),
+    getSubtasks: (taskId: string) =>
+      call<Subtask[]>("GET", `/task/${taskId}/subtasks`),
+    addSubtask: (taskId: string, name: string) =>
+      call<Subtask>("POST", `/task/${taskId}/subtask`, { name }),
+    updateSubtask: (id: string, patch: { name?: string; status?: "QUEUED" | "DONE" }) =>
+      call<Subtask>("PATCH", `/subtask/${id}`, patch),
+    deleteSubtask: (id: string) =>
+      call<{ ok: true }>("DELETE", `/subtask/${id}`),
   },
   ai: {
     parseSchedule: (image: string) =>

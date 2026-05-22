@@ -143,6 +143,21 @@ export function buildRouter(db: Database, claude: ClaudeService, config: Config)
     res.json(db.reorderTasks(req.params.dayId, req.body?.orderedIds ?? [])),
   );
 
+  gated.get("/task/:taskId/subtasks", (req, res) =>
+    res.json(db.getSubtasks(req.params.taskId)),
+  );
+  gated.post("/task/:taskId/subtask", (req, res) => {
+    const name = String(req.body?.name ?? "").trim();
+    if (!name) return res.status(400).json({ error: "name required" });
+    res.json(db.addSubtask(req.params.taskId, name));
+  });
+  gated.patch("/subtask/:id", (req, res) =>
+    res.json(db.updateSubtask(req.params.id, req.body ?? {})),
+  );
+  gated.delete("/subtask/:id", (req, res) =>
+    res.json(db.deleteSubtask(req.params.id)),
+  );
+
   gated.post("/day/:dayId/reflection", (req, res) =>
     res.json(db.saveReflection(req.params.dayId, req.body?.entries ?? [])),
   );
